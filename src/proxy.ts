@@ -30,7 +30,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except static assets and the cron endpoint, which authenticates
-  // itself with CRON_SECRET rather than a user session.
-  matcher: ["/((?!api/cron|_next/static|_next/image|favicon.ico).*)"],
+  // Everything except static assets, the cron endpoint (which authenticates
+  // itself with CRON_SECRET), and the health check (which must be reachable
+  // when the database — and therefore sessions — are broken).
+  matcher: ["/((?!api/cron|api/health|_next/static|_next/image|favicon.ico).*)"],
 };

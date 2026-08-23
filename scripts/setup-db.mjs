@@ -13,11 +13,21 @@ import { execSync } from "node:child_process";
  */
 
 // Vercel names this differently depending on which Postgres product is attached.
-const databaseUrl =
-  process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL;
+// A blank value counts as absent — Prisma rejects an empty connection string.
+const CANDIDATES = [
+  "DATABASE_URL",
+  "POSTGRES_PRISMA_URL",
+  "POSTGRES_URL",
+  "DATABASE_URL_UNPOOLED",
+  "POSTGRES_URL_NON_POOLING",
+];
 
-if (databaseUrl && !process.env.DATABASE_URL) {
+const source = CANDIDATES.find((name) => process.env[name]?.trim());
+const databaseUrl = source ? process.env[source].trim() : undefined;
+
+if (databaseUrl) {
   process.env.DATABASE_URL = databaseUrl;
+  console.log(`[setup-db] Using connection string from ${source}.`);
 }
 
 if (!databaseUrl) {

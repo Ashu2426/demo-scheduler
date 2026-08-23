@@ -1,24 +1,43 @@
 /**
  * Vercel injects a different variable name depending on which Postgres product
- * you attach (Neon sets DATABASE_URL, older Vercel Postgres sets POSTGRES_URL /
- * POSTGRES_PRISMA_URL). Accept whichever is present so the deployment works
- * regardless of the choice.
+ * is attached (Neon sets DATABASE_URL, older Vercel Postgres sets POSTGRES_URL /
+ * POSTGRES_PRISMA_URL). Accept whichever is actually populated.
  *
- * POSTGRES_PRISMA_URL is preferred over POSTGRES_URL when both exist — it
- * carries the connection-pooling parameters Prisma wants in serverless.
+ * An empty or whitespace-only value counts as absent — a variable created in the
+ * dashboard but left blank would otherwise shadow a working one and produce
+ * "You must provide a nonempty URL" at runtime.
  */
-export function resolveDatabaseUrl(): string | undefined {
-  return (
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_PRISMA_URL ||
-    process.env.POSTGRES_URL ||
-    undefined
-  );
+
+/** Candidate variable names, in order of preference. */
+export const DATABASE_URL_CANDIDATES = [
+  "DATABASE_URL",
+  "POSTGRES_PRISMA_URL",
+  "POSTGRES_URL",
+  "DATABASE_URL_UNPOOLED",
+  "POSTGRES_URL_NON_POOLING",
+] as const;
+
+function nonEmpty(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
 }
 
-/** Prisma reads DATABASE_URL at client construction, so normalise it first. */
+export function resolveDatabaseUrl(): string | undefined {
+  for (const name of DATABASE_URL_CANDIDATES) {
+    const value = nonEmpty(process.env[name]);
+    if (value) return value;
+  }
+  return undefined;
+}
+
+/** Which variable the connection came from — for diagnostics, never the value. */
+export function resolveDatabaseUrlSource(): string | undefined {
+  return DATABASE_URL_CANDIDATES.find((name) => nonEmpty(process.env[name]));
+}
+
+/** Prisma falls back to reading DATABASE_URL itself, so normalise it too. */
 export function ensureDatabaseUrl(): string | undefined {
   const url = resolveDatabaseUrl();
-  if (url && !process.env.DATABASE_URL) process.env.DATABASE_URL = url;
+  if (url) process.env.DATABASE_URL = url;
   return url;
 }
