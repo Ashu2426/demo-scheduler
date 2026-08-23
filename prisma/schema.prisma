@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OWNER
+  VIEWER
+}
+
+enum DemoStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum Severity {
+  BLOCKS_DEMO
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ReminderType {
+  T_MINUS_3_DAYS
+  T_MINUS_1_DAY
+}
+
+model Office {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  isActive Boolean @default(true)
+
+  users User[]
+  demos Demo[]
+
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id           String  @id @default(cuid())
+  name         String
+  email        String  @unique
+  passwordHash String
+  role         Role    @default(VIEWER)
+  isActive     Boolean @default(true)
+
+  officeId String
+  office   Office @relation(fields: [officeId], references: [id])
+
+  ownedDemos     Demo[]  @relation("DemoOwner")
+  assignedIssues Issue[] @relation("IssueAssignee")
+  reportedIssues Issue[] @relation("IssueReporter")
+
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  isActive Boolean @default(true)
+
+  demos  Demo[]
+  issues Issue[]
+
+  createdAt DateTime @default(now())
+}
+
+model Demo {
+  id            String     @id @default(cuid())
+  clientName    String
+  startTime     DateTime
+  endTime       DateTime
+  bufferMinutes Int        @default(30)
+  status        DemoStatus @default(SCHEDULED)
+  notes         String?
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  officeId String
+  office   Office @relation(fields: [officeId], references: [id])
+
+  ownerId String
+  owner   User   @relation("DemoOwner", fields: [ownerId], references: [id])
+
+  issues    Issue[]
+  reminders ReminderLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId, startTime])
+  @@index([startTime])
+}
+
+model Issue {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  severity    Severity    @default(MEDIUM)
+  status      IssueStatus @default(OPEN)
+
+  demoId String
+  demo   Demo   @relation(fields: [demoId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  assigneeId String
+  assignee   User   @relation("IssueAssignee", fields: [assigneeId], references: [id])
+
+  reportedById String
+  reportedBy   User   @relation("IssueReporter", fields: [reportedById], references: [id])
+
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([assigneeId, status])
+}
+
+// Prevents the daily cron from emailing the same reminder twice.
+model ReminderLog {
+  id   String       @id @default(cuid())
+  type ReminderType
+
+  demoId String
+  demo   Demo   @relation(fields: [demoId], references: [id], onDelete: Cascade)
+
+  sentAt DateTime @default(now())
+
+  @@unique([demoId, type])
+}
