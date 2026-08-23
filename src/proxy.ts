@@ -3,7 +3,16 @@ import { SESSION_COOKIE, decodeSession } from "@/lib/session";
 
 const PUBLIC_PATHS = ["/login"];
 
-export async function middleware(request: NextRequest) {
+/**
+ * Redirects signed-out visitors to the login page.
+ *
+ * This is a convenience layer only — it is NOT the security boundary. Every
+ * page and server action calls requireSession() itself, so access is still
+ * enforced even if this never runs.
+ *
+ * (Named `proxy` per the Next.js 16 file convention that replaced `middleware`.)
+ */
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
