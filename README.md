@@ -37,27 +37,32 @@ Chosen so the whole thing deploys to Vercel with no custom infrastructure: no lo
 
 ---
 
-## Local setup
+## Deploying to Vercel
+
+Nothing to install, and no commands to run. Three steps:
+
+**1. Push this folder to GitHub.**
 
 ```bash
-npm install
-cp .env.example .env      # then fill in DATABASE_URL and AUTH_SECRET
-npm run db:push           # create the tables
-npm run db:seed           # add sample offices, products, and users
-npm run dev
+git remote add origin https://github.com/<you>/demo-scheduler.git
+git push -u origin main
 ```
 
-Open http://localhost:3000.
+**2. Import the repo at [vercel.com/new](https://vercel.com/new).**
+Vercel detects Next.js on its own — leave every build setting alone.
 
-Generate an `AUTH_SECRET` with:
+The first deploy will succeed but the app won't work yet, because there's no database. That's expected.
 
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+**3. Attach a database, then redeploy.**
+In your Vercel project → **Storage** → **Create Database** → **Neon (Postgres)** → connect it to the project. `DATABASE_URL` is injected automatically.
+
+Now go to **Deployments** → the latest one → **⋯** → **Redeploy**.
+
+That's it. The build creates the tables and inserts the starter data by itself (`scripts/setup-db.mjs`), so the app is ready to log into as soon as the redeploy finishes.
 
 ### Seeded logins
 
-All seeded users share the password **`Passw0rd!`** — change these before real use.
+All seeded users share the password **`Passw0rd!`**
 
 | Email | Role | Office |
 |---|---|---|
@@ -66,41 +71,41 @@ All seeded users share the password **`Passw0rd!`** — change these before real
 | `priya@monocept.com` | Demo Owner | Mumbai |
 | `arjun@monocept.com` | Viewer | Gurgaon |
 
+> **Change these before anyone real uses the app.** Sign in as the admin, add proper accounts under **Admin → Users**, then remove the seed users. The default password is in this public repo, so any deployment still using it is effectively open. Also delete the credential hint at the bottom of `src/app/login/page.tsx`.
+
+### Optional environment variables
+
+None of these are needed to get running — add them later under **Settings → Environment Variables**.
+
+| Variable | What it does if you set it |
+|---|---|
+| `RESEND_API_KEY` | Actually sends reminder emails. Without it they're written to the server log, visible under Vercel → Logs. Free key at [resend.com](https://resend.com). |
+| `REMINDER_FROM_EMAIL` | Sender address, e.g. `DSMS <demos@yourdomain.com>`. Must be a domain verified in Resend. |
+| `CRON_SECRET` | Stops anyone else from triggering the reminder job. Recommended once you're live. |
+| `AUTH_SECRET` | An explicit session signing key. If unset, one is derived from `DATABASE_URL` automatically. |
+| `NEXT_PUBLIC_APP_URL` | Your production URL, used for links inside reminder emails. Defaults to the Vercel URL. |
+
+### About the daily reminder job
+
+`vercel.json` registers a run of `/api/cron/reminders` at 03:30 UTC (09:00 IST). It appears under **Settings → Cron Jobs** after the first deploy. To trigger it manually:
+
+```bash
+curl https://your-app.vercel.app/api/cron/reminders
+```
+
+> On the Vercel Hobby plan, cron jobs run once per day and the exact minute isn't guaranteed — fine for daily reminders. More frequent or precisely-timed runs need the Pro plan.
+
 ---
 
-## Deploying to Vercel
+## Running on your own machine (optional)
 
-1. **Push to GitHub**, then import the repo at [vercel.com/new](https://vercel.com/new). Vercel detects Next.js automatically — no build settings to change.
+You don't need this to deploy. If you do want it locally, you still need a Postgres database — the easiest is to reuse the same Neon one:
 
-2. **Add a database.** In your Vercel project → **Storage** → create a Postgres store (Neon). `DATABASE_URL` is injected into the project automatically.
-
-   Using a database from elsewhere (Supabase, Railway, RDS) works too — just set `DATABASE_URL` yourself under **Settings → Environment Variables**.
-
-3. **Add the remaining environment variables** under **Settings → Environment Variables**:
-
-   | Variable | Required | Notes |
-   |---|---|---|
-   | `DATABASE_URL` | Yes | Auto-set if you used Vercel's Postgres store |
-   | `AUTH_SECRET` | Yes | Long random string — sessions won't work without it |
-   | `CRON_SECRET` | Recommended | Vercel sends this to the cron route so nothing else can trigger it |
-   | `RESEND_API_KEY` | Optional | Without it, reminders are logged to the server console instead of emailed |
-   | `REMINDER_FROM_EMAIL` | Optional | e.g. `DSMS <demos@yourdomain.com>` — must be a domain verified in Resend |
-   | `NEXT_PUBLIC_APP_URL` | Optional | Your production URL, used for links inside reminder emails |
-
-4. **Deploy**, then create the tables against the production database. From your local machine, with the production `DATABASE_URL` in your `.env`:
-
-   ```bash
-   npm run db:push
-   npm run db:seed
-   ```
-
-5. **Verify the cron.** `vercel.json` registers a daily run of `/api/cron/reminders` at 03:30 UTC (09:00 IST). It appears under **Settings → Cron Jobs** after the first deploy. You can trigger it manually to test:
-
-   ```bash
-   curl -H "Authorization: Bearer $CRON_SECRET" https://your-app.vercel.app/api/cron/reminders
-   ```
-
-> **Note on the Vercel Hobby plan:** cron jobs run once per day and the exact minute is not guaranteed. That's fine for daily reminders. If you need precise timing or more frequent runs, that requires the Pro plan.
+```bash
+npm install
+cp .env.example .env    # paste your DATABASE_URL from Vercel → Storage
+npm run dev
+```
 
 ---
 
