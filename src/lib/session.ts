@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
+import { resolveDatabaseUrl } from "@/lib/database-url";
 
 // `jose` is used (rather than a Node-only JWT library) because middleware runs
 // on the Edge runtime, where Node crypto isn't available.
@@ -34,7 +35,7 @@ async function getSecret(): Promise<Uint8Array> {
     return cachedSecret;
   }
 
-  const databaseUrl = process.env.DATABASE_URL;
+  const databaseUrl = resolveDatabaseUrl();
   if (!databaseUrl) {
     throw new Error(
       "Cannot sign sessions: set AUTH_SECRET (or DATABASE_URL) in your environment.",

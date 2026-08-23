@@ -12,7 +12,15 @@ import { execSync } from "node:child_process";
  * been attached) this exits quietly rather than failing the deployment.
  */
 
-if (!process.env.DATABASE_URL) {
+// Vercel names this differently depending on which Postgres product is attached.
+const databaseUrl =
+  process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL;
+
+if (databaseUrl && !process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = databaseUrl;
+}
+
+if (!databaseUrl) {
   console.warn(
     "\n[setup-db] DATABASE_URL is not set — skipping migrations and seed.\n" +
       "[setup-db] The build will finish, but the app cannot work until you add a\n" +

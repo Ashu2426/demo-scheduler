@@ -1,4 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+import { ensureDatabaseUrl } from "@/lib/database-url";
+
+// Must run before the client is constructed — Prisma reads DATABASE_URL then.
+ensureDatabaseUrl();
 
 // Reuse the client across hot reloads in dev and across warm serverless
 // invocations in production, so we don't exhaust the connection pool.
